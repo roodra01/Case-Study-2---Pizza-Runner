@@ -104,19 +104,20 @@ SELECT * FROM runner_orders_v2 ORDER BY order_id
 Fixed! This will be the table we use when dealing with questions that require the runner_orders.
 
 ## Solutions
-### 1. How many pizzas were ordered?
+### A. Pizza Metrics
+#### 1. How many pizzas were ordered?
 ```sql
 SELECT count(*) as pizza_count FROM customer_orders_v2
 ```
 ![image](https://github.com/roodra01/Case-Study-2---Pizza-Runner/assets/129188359/0abdb6d5-95c3-4e17-9808-d88f7d787f82)
 
-### 2. How many unique customer orders were made?
+#### 2. How many unique customer orders were made?
 ```sql
 SELECT COUNT(DISTINCT(order_id)) as unique_orders FROM customer_orders_v2
 ```
 ![image](https://github.com/roodra01/Case-Study-2---Pizza-Runner/assets/129188359/effb60ed-7b73-44a8-bba3-6e80a7e2de74)
 
-### 3. How many successful orders were delivered by each runner?
+#### 3. How many successful orders were delivered by each runner?
 
 ```sql
 SELECT runner_id,
@@ -129,7 +130,7 @@ ORDER BY runner_id
 ![image](https://github.com/roodra01/Case-Study-2---Pizza-Runner/assets/129188359/c93ef2a2-b8ee-4043-b37c-23b23425306c)
 
 
-### 4. How many of each type of pizza was delivered?
+#### 4. How many of each type of pizza was delivered?
 
 ```sql
 
@@ -143,7 +144,7 @@ GROUP BY pizza_id
 ![image](https://github.com/roodra01/Case-Study-2---Pizza-Runner/assets/129188359/5c7c1a2f-9a83-4cf6-baa9-d2989a215f72)
 
 
-### 5. How many Vegetarian and Meatlovers were ordered by each customer?
+#### 5. How many Vegetarian and Meatlovers were ordered by each customer?
 ```sql
 SELECT 
   c.customer_id, 
@@ -158,7 +159,7 @@ ORDER BY c.customer_id;
 ```
 ![image](https://github.com/roodra01/Case-Study-2---Pizza-Runner/assets/129188359/db21a22b-08fd-4722-a0d8-2fbaabf2f86a)
 
-### 6. What was the maximum number of pizzas delivered in a single order?
+#### 6. What was the maximum number of pizzas delivered in a single order?
 ```sql
 WITH pizzas_per_ord AS (
 	SELECT 
@@ -171,7 +172,7 @@ SELECT MAX(pizza_count) as max_ordered FROM pizzas_per_ord
 ```
 ![image](https://github.com/roodra01/Case-Study-2---Pizza-Runner/assets/129188359/d5fca758-2687-4d8a-bac0-4f518b827922)
 
-### 7. For each customer, how many delivered pizzas had at least 1 change and how many had no changes?
+#### 7. For each customer, how many delivered pizzas had at least 1 change and how many had no changes?
 ```sql
 SELECT 
   cus.customer_id,
@@ -195,7 +196,7 @@ ORDER BY cus.customer_id;
 
 Note: I add WHERE run.distance IS NOT NULL because we are the question is how many _DELIVERED_ pizzas. run.distance not being null ensures the pizza was delivered.
 
-### 8. How many pizzas were delivered that had both exclusions and extras?
+#### 8. How many pizzas were delivered that had both exclusions and extras?
 ```sql
 SELECT  
   SUM(
@@ -210,7 +211,7 @@ WHERE run.distance IS NOT NULL
 ![image](https://github.com/roodra01/Case-Study-2---Pizza-Runner/assets/129188359/ff782063-7d4f-4468-b9e2-d19e83658235)
 
 
-### 9. What was the total volume of pizzas ordered for each hour of the day?
+#### 9. What was the total volume of pizzas ordered for each hour of the day?
 ```sql
 SELECT 
   EXTRACT(HOUR FROM order_time) AS hour_of_day, 
@@ -222,7 +223,7 @@ GROUP BY EXTRACT(HOUR FROM order_time)
 
 Note: The hours are in military time.
 
-### 10. What was the volume of orders for each day of the week?
+#### 10. What was the volume of orders for each day of the week?
 ```sql
 SELECT 
   EXTRACT(DAYOFWEEK FROM order_time) AS day_of_week, 
@@ -233,4 +234,119 @@ GROUP BY EXTRACT(DAYOFWEEK FROM order_time)
 ![image](https://github.com/roodra01/Case-Study-2---Pizza-Runner/assets/129188359/9facad12-5a66-4815-8cab-98afb76ce007)
 
 Note: The numbers under day_of_week correspond to a day of the week starting with Sunday as 1 to Saturday as 7. If you wanted a chart with the Day of the week as the name it'd be simple to do it. You would just use CASE to add a column to correspond each number with a day of the week.
+
+### B. Runner and Customer Experience
+#### 1.	How many runners signed up for each 1 week period? (i.e. week starts 2021-01-01)
+```sql
+
+SELECT 
+  EXTRACT(WEEK FROM registration_date) AS week, 
+  COUNT(order_id) AS runner_counts
+FROM customer_orders_v2
+GROUP BY EXTRACT(WEEK FROM registration_date);
+```
+![image](https://github.com/roodra01/Case-Study-2---Pizza-Runner/assets/129188359/06c61400-a15c-487f-a561-c50856f2997e)
+
+#### 2.	What was the average time in minutes it took for each runner to arrive at the Pizza Runner HQ to pickup the order?
+```sql
+WITH time_per_order AS(
+SELECT 
+run.order_id,
+order_time,
+pickup_time,
+DATETIME_DIFF(pickup_time, SAFE_CAST(order_time as DATETIME),  MINUTE) as time_to_pickup
+FROM runner_orders_v2 AS run
+JOIN customer_orders_v2 AS cus
+ON run.order_id=cus.order_id
+WHERE pickup_time IS NOT NULL
+GROUP BY run.order_id, order_time, pickup_time
+ORDER BY run.order_id)
+
+SELECT avg(time_to_pickup) AS avg_time_to_pickup
+FROM time_per_order;
+```
+![image](https://github.com/roodra01/Case-Study-2---Pizza-Runner/assets/129188359/27e973f3-4b97-414a-93ce-a9672c8b5d05)
+
+
+#### 3.	Is there any relationship between the number of pizzas and how long the order takes to prepare?
+```sql
+WITH pizza_numberVStime AS (
+SELECT 
+count(*) as number_of_pizzas,
+DATETIME_DIFF(pickup_time, SAFE_CAST(order_time as DATETIME),  MINUTE) as time_to_pickup
+FROM runner_orders_v2 AS run
+JOIN customer_orders_v2 AS cus
+ON run.order_id=cus.order_id
+WHERE pickup_time IS NOT NULL
+GROUP BY run.order_id, order_time, pickup_time
+ORDER BY run.order_id)
+
+SELECT
+number_of_pizzas,
+avg(time_to_pickup) as avg_time
+FROM pizza_numberVStime
+GROUP BY number_of_pizzas
+ORDER BY number_of_pizzas
+
+```
+![image](https://github.com/roodra01/Case-Study-2---Pizza-Runner/assets/129188359/fc24eeed-8e9a-4a03-bfe7-d190cd70f4b1)
+
+Prep time increases with the amount of pizzas ordered.
+
+#### 4.	What was the average distance travelled for each customer?
+```sql
+
+WITH order_distance AS (SELECT 
+customer_id, run.order_id, avg(distance) as distance
+FROM runner_orders_v2 AS run
+JOIN customer_orders_v2 AS cus
+ON run.order_id=cus.order_id
+WHERE pickup_time IS NOT NULL
+GROUP BY customer_id, run.order_id)
+
+SELECT customer_id, avg(distance) as avg_distance
+FROM order_distance
+GROUP BY customer_id
+ORDER BY customer_id
+```
+![image](https://github.com/roodra01/Case-Study-2---Pizza-Runner/assets/129188359/9fbdaf0c-2218-477a-9e47-5b9e016d0d78)
+
+
+#### 5.	What was the difference between the longest and shortest delivery times for all orders?
+```sql
+WITH order_duration AS(
+SELECT 
+customer_id, run.order_id, avg(duration) as duration
+FROM runner_orders_v2 AS run
+JOIN customer_orders_v2 AS cus
+ON run.order_id=cus.order_id
+WHERE pickup_time IS NOT NULL
+GROUP BY customer_id, run.order_id)
+
+SELECT max(duration) - min(duration) as max_difference
+FROM order_duration
+```
+![image](https://github.com/roodra01/Case-Study-2---Pizza-Runner/assets/129188359/e595e9cb-8a24-4e9a-94dc-bf7f147c82ec)
+
+#### 6.	What was the average speed for each runner for each delivery and do you notice any trend for these values?
+```sql
+SELECT runner_id, order_id, round(distance/(duration/60), 3) as avg_speed
+FROM runner_orders_v2
+WHERE distance IS NOT NULL
+ORDER BY runner_id, order_id
+```
+![image](https://github.com/roodra01/Case-Study-2---Pizza-Runner/assets/129188359/ebbe53f5-cf30-4c73-aea2-23f2b371d1bd)
+
+#### 7.	What is the successful delivery percentage for each runner?
+```sql
+SELECT 
+runner_id, 
+ROUND(100 * SUM(
+  CASE WHEN distance IS NULL THEN 0
+  ELSE 1 END) / COUNT(*), 0) AS success_perc
+FROM runner_orders_v2
+GROUP BY runner_id
+ORDER BY runner_id
+```
+![image](https://github.com/roodra01/Case-Study-2---Pizza-Runner/assets/129188359/92d3299f-e019-4696-b932-0811c59e6830)
 
