@@ -350,3 +350,239 @@ ORDER BY runner_id
 ```
 ![image](https://github.com/roodra01/Case-Study-2---Pizza-Runner/assets/129188359/92d3299f-e019-4696-b932-0811c59e6830)
 
+### C. Ingredient Optimisation
+#### 1.	What are the standard ingredients for each pizza?
+```sql
+WITH seperated_tops AS (
+SELECT
+pizza_id,
+split(toppings) as toppings
+FROM `pizza_runner.pizza_recipes`),
+
+sep_pizza_tops AS (
+SELECT 
+pizza_id, 
+cast(split_toppings as INT64) as split_toppings
+FROM seperated_tops 
+CROSS JOIN UNNEST(seperated_tops.toppings) as split_toppings)
+
+SELECT 
+pizza_id,
+STRING_AGG(topping_name, ", ") as topping_name
+FROM 
+sep_pizza_tops as s
+JOIN `pizza_runner.pizza_toppings` as t
+on s.split_toppings= t.topping_id 
+GROUP BY pizza_id
+```
+![image](https://github.com/roodra01/Case-Study-2---Pizza-Runner/assets/129188359/01af1f15-00d8-48d6-9e5a-434085fcfbcd)
+
+#### 2.	What was the most commonly added extra?
+```sql
+WITH split_extras AS( 
+	SELECT 
+order_id,
+split(extras) as extras
+FROM
+customer_orders_v2
+WHERE extras IS NOT NULL)
+
+SELECT
+topping_name,
+number_of_times_ordered
+FROM `pizza_runner.pizza_toppings` as t
+JOIN(
+	SELECT 
+		CAST(split_extras2 as INT64) as extras,
+		count(split_extras2) as number_of_times_ordered
+	FROM
+	split_extras
+	CROSS JOIN UNNEST(split_extras.extras) as split_extras2
+GROUP BY split_extras2) as s
+ON s.extras= t.topping_id 
+
+```
+![image](https://github.com/roodra01/Case-Study-2---Pizza-Runner/assets/129188359/a7978bb2-88a0-4584-9009-bb337fb67ec3)
+
+
+#### 3.	What was the most common exclusion?
+```sql
+WITH split_exclusions AS( 
+	SELECT 
+order_id,
+split(exclusions) as exclusions
+FROM
+customer_orders_v2
+WHERE exclusions IS NOT NULL)
+
+SELECT
+topping_name,
+number_of_times_ordered
+FROM `pizza_runner.pizza_toppings` as t
+JOIN(
+	SELECT 
+		CAST(split_exclusions2 as INT64) as exclusions,
+		count(split_exclusions2) as number_of_times_ordered
+	FROM
+	split_exclusions
+	CROSS JOIN UNNEST( split_exclusions.exclusions) as  split_exclusions2
+GROUP BY split_exclusions2) as s
+ON s.exclusions= t.topping_id 
+```
+![image](https://github.com/roodra01/Case-Study-2---Pizza-Runner/assets/129188359/05385d4d-b7a0-426e-8335-209d7de83402)
+
+
+#### 4.	Generate an order item for each record in the customers_orders table in the format of one of the following:
+#### •	Meat Lovers
+#### •	Meat Lovers - Exclude Beef
+#### •	Meat Lovers - Extra Bacon
+#### •	Meat Lovers - Exclude Cheese, Bacon - Extra Mushroom, Peppers
+```sql
+
+```
+#### 5.	Generate an alphabetically ordered comma separated ingredient list for each pizza order from the customer_orders table and add a 2x in front of any relevant ingredients
+#### •	For example: "Meat Lovers: 2xBacon, Beef, ... , Salami"
+```sql
+
+```
+#### 6.	What is the total quantity of each ingredient used in all delivered pizzas sorted by most frequent first?
+```sql
+
+```
+### D.  Pricing and Ratings
+#### 1.	If a Meat Lovers pizza costs $12 and Vegetarian costs $10 and there were no charges for changes - how much money has Pizza Runner made so far if there are no delivery fees?
+```sql
+WITH uncancelled_orders AS (
+SELECT
+*
+FROM  customer_orders_v2
+WHERE EXISTS( 
+	SELECT *
+	FROM runner_orders_v2
+	WHERE customer_orders_v2.order_id=runner_orders_v2.order_id AND cancellation IS NULL
+))
+
+SELECT
+  SUM(
+    CASE
+      WHEN pizza_id = 1 THEN 12
+      WHEN pizza_id = 2 THEN 10
+      END )
+       
+FROM uncancelled_orders
+
+
+```
+![image](https://github.com/roodra01/Case-Study-2---Pizza-Runner/assets/129188359/b29e9ebf-8ac9-4771-a81d-6225ece55ae8)
+
+#### 2.	What if there was an additional $1 charge for any pizza extras?
+
+```sql
+WITH uncancelled_orders AS (
+SELECT
+pizza_id,
+	split(extras) as extras
+FROM  customer_orders_v2
+WHERE EXISTS( 
+	SELECT 
+	*
+	FROM runner_orders_v2
+	WHERE customer_orders_v2.order_id=runner_orders_v2.order_id AND cancellation IS NULL
+))
+
+
+SELECT
+  SUM(
+    CASE
+      WHEN pizza_id = 1 THEN 12  
+      WHEN pizza_id = 2 THEN 10  
+      END )  + SUM(ARRAY_LENGTH(extras)) as cost
+   
+     
+FROM uncancelled_orders
+```
+![image](https://github.com/roodra01/Case-Study-2---Pizza-Runner/assets/129188359/bd415493-0310-4141-a962-1e64ef2456f4)
+
+#### •	Add cheese is $1 extra
+```sql
+WITH uncancelled_orders AS (
+SELECT
+pizza_id,
+	split(extras) as extras
+FROM  customer_orders_v2
+WHERE EXISTS( 
+	SELECT 
+	*
+	FROM runner_orders_v2
+	WHERE customer_orders_v2.order_id=runner_orders_v2.order_id AND cancellation IS NULL
+))
+
+
+
+
+SELECT
+  SUM(
+    CASE 
+      WHEN pizza_id = 1 THEN 12  
+      WHEN pizza_id = 2 THEN 10  
+      END )  + 
+	 SUM(ARRAY_LENGTH(extras))  +
+	 	SUM(
+		 CASE 
+			WHEN ' 4' IN unnest(extras) THEN 1
+			ELSE 0
+			END) as cost_with_cheese
+FROM uncancelled_orders
+```
+![image](https://github.com/roodra01/Case-Study-2---Pizza-Runner/assets/129188359/0768dca2-be33-4ab7-abf7-a0fdedd0c31b)
+#### 3.	The Pizza Runner team now wants to add an additional ratings system that allows customers to rate their runner, how would you design an additional table for this new dataset - generate a schema for this new table and insert your own data for ratings for each successful customer order between 1 to 5.
+```sql
+
+SELECT distinct(order_id),
+CASE
+WHEN 1=1 THEN  FLOOR(1 + 5* RAND()) 
+END
+AS rating
+FROM customer_orders_v2
+```
+![image](https://github.com/roodra01/Case-Study-2---Pizza-Runner/assets/129188359/06d2d2b5-4a0e-4d63-90e6-5104cef41ff4)
+
+#### 4.	Using your newly generated table - can you join all of the information together to form a table which has the following information for successful deliveries?
+#### •	customer_id
+#### •	order_id
+#### •	runner_id
+#### •	rating
+#### •	order_time
+#### •	pickup_time
+#### •	Time between order and pickup
+#### •	Delivery duration
+#### •	Average speed
+#### •	Total number of pizzas
+```sql
+SELECT
+cus.order_id,
+runner_id,
+CASE
+	WHEN 1=1 THEN  FLOOR(1 + 5* RAND()) 
+  END as rating,
+order_time,
+pickup_time,
+DATETIME_DIFF(pickup_time, SAFE_CAST(order_time as DATETIME),  MINUTE) as time_to_pickup,
+round(distance/(duration/60), 3) as speed,
+count(*) as pizza_count
+FROM runner_orders_v2 AS run
+JOIN customer_orders_v2 AS cus
+ON run.order_id=cus.order_id
+WHERE pickup_time IS NOT NULL 
+GROUP BY cus.order_id, runner_id, distance, duration,pickup_time, order_time
+ORDER BY cus.order_id
+```
+![image](https://github.com/roodra01/Case-Study-2---Pizza-Runner/assets/129188359/7744e749-7ca9-429e-9ca7-d02ea40ecee3)
+
+Note: I use random numbers for the ratings here but you could easily put into ratings with a CASE WHEN depending on order_id.
+
+#### 5.	If a Meat Lovers pizza was $12 and Vegetarian $10 fixed prices with no cost for extras and each runner is paid $0.30 per kilometre traveled - how much money does Pizza Runner have left over after these deliveries?
+
+```sql
+
+```
