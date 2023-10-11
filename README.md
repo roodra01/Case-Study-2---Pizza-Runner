@@ -584,5 +584,26 @@ Note: I use random numbers for the ratings here but you could easily put into ra
 #### 5.	If a Meat Lovers pizza was $12 and Vegetarian $10 fixed prices with no cost for extras and each runner is paid $0.30 per kilometre traveled - how much money does Pizza Runner have left over after these deliveries?
 
 ```sql
+WITH uncancelled_orders AS (
+SELECT
+*
+FROM  customer_orders_v2
+WHERE EXISTS( 
+	SELECT *
+	FROM runner_orders_v2
+	WHERE customer_orders_v2.order_id=runner_orders_v2.order_id AND cancellation IS NULL
+)),
 
+pizza_money AS (
+SELECT
+  SUM(
+    CASE
+      WHEN pizza_id = 1 THEN 12
+      WHEN pizza_id = 2 THEN 10
+      END )
+       
+FROM uncancelled_orders)
+
+SELECT (SELECT * FROM pizza_money) - (SELECT sum(distance)*.3 FROM runner_orders_v2) AS left_over_money
 ```
+![image](https://github.com/roodra01/Case-Study-2---Pizza-Runner/assets/129188359/6474979e-84e8-43ef-b5c0-642484c74faf)
