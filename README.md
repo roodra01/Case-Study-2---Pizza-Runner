@@ -1,17 +1,7 @@
-# 🍕 Case Study #2 Pizza Runner
+# Case Study #2 Pizza Runner
 
 <img src="https://user-images.githubusercontent.com/81607668/127271856-3c0d5b4a-baab-472c-9e24-3c1e3c3359b2.png" alt="Image" width="500" height="520">
 
-## 📚 Table of Contents
-- [Business Task](#business-task)
-- [Entity Relationship Diagram](#entity-relationship-diagram)
-- Solution
-  - [Data Cleaning and Transformation](#-data-cleaning--transformation)
-  - [A. Pizza Metrics](#a-pizza-metrics)
-  - [B. Runner and Customer Experience](#b-runner-and-customer-experience)
-  - [C. Ingredient Optimisation](#c-ingredient-optimisation)
-  - [D. Pricing and Ratings](#d-pricing-and-ratings)
- 
 ## Business Task
 Danny is expanding his new Pizza Empire and at the same time, he wants to Uberize it, so Pizza Runner was launched!
 
@@ -21,7 +11,10 @@ Danny started by recruiting “runners” to deliver fresh pizza from Pizza Runn
 
 ![Pizza Runner](https://github.com/katiehuangx/8-Week-SQL-Challenge/assets/81607668/78099a4e-4d0e-421f-a560-b72e4321f530)
 
-## 🧼 Data Cleaning & Transformation
+## Note to reader
+If you want to get into the meat and potatoes of this project and *really* see me using SQL then skip ahead to questions C4, C5, and C6. Those three questions were obnoxiously difficult and really put my problem solving skills to the test.
+
+## Data Cleaning & Transformation
 Before we get into the questions I wanna clean up the data a little so we don't run into problems later on. The challenge states that customer_orders and runner_orders has some problems. Lets dive into them to see what the issues are. 
 
 ### customer_orders
@@ -438,8 +431,117 @@ ON s.exclusions= t.topping_id
 #### •	Meat Lovers - Extra Bacon
 #### •	Meat Lovers - Exclude Cheese, Bacon - Extra Mushroom, Peppers
 ```sql
+WITH ex AS (
+SELECT 
+ROW_NUMBER() OVER (ORDER BY order_id, pizza_id) as id,
+order_id,
+customer_id,
+pizza_id,
+order_time,
+exclusions as unspex,
+split(exclusions) as exclusions,
+split(extras) as extras
+FROM
+customer_orders_v2
+),
+
+spl_exclusions as 
+(SELECT 
+	order_id, pizza_id, cast(split_exclusions2 AS int64) as sp
+	FROM
+	ex
+	CROSS JOIN UNNEST( ex.exclusions) as  split_exclusions2
+),
+
+named_exc AS 
+(SELECT
+	order_id, pizza_id, sp, topping_name
+FROM spl_exclusions as s
+JOIN `pizza_runner.pizza_toppings` as p
+ON s.sp=p.topping_id),
+
+
+array_name_exc AS
+(SELECT order_id, pizza_id, array_agg(topping_name) as topping_name
+FROM named_exc
+GROUP BY order_id, pizza_id),
+
+spl_extras as 
+(SELECT 
+	order_id, pizza_id, cast(split_extras2 AS int64) as sp
+	FROM
+	ex
+	CROSS JOIN UNNEST( ex.extras) as  split_extras2
+),
+
+named_ext AS 
+(SELECT
+	order_id, pizza_id, sp, topping_name
+FROM spl_extras as s
+JOIN `pizza_runner.pizza_toppings` as p
+ON s.sp=p.topping_id),
+
+
+array_name_ext AS
+(SELECT order_id, pizza_id, array_agg(topping_name) as topping_name
+FROM named_ext
+GROUP BY order_id, pizza_id),
+
+almost_extras AS
+(SELECT 
+ROW_NUMBER() OVER (ORDER BY ex.order_id, ex.pizza_id) as id,
+ ex.order_id,
+ ex.pizza_id,
+ unspex,
+CASE
+	WHEN ex.pizza_id= 1 THEN 'Meatlovers'
+	WHEN ex.pizza_id= 2 THEN 'Vegetarian'
+END,
+ CASE 
+ 	WHEN ARRAY_LENGTH(extras) > 1 THEN CONCAT(' - Extra ' , ARRAY_TO_STRING(topping_name, ', ') )
+	ELSE CONCAT(' - Extra ' , topping_name[safe_offset(0)])
+END as extras
+FROM ex
+FULL OUTER JOIN array_name_ext as aext
+ON ex.order_id=aext.order_id AND ex.pizza_id=aext.pizza_id
+ORDER BY order_id, pizza_id),
+
+final_list as (SELECT 
+ ex.order_id,
+ ex.pizza_id,
+CASE
+	WHEN ex.pizza_id= 1 THEN 'Meatlovers'
+	WHEN ex.pizza_id= 2 THEN 'Vegetarian'
+END as pizza,
+CASE 
+WHEN ARRAY_LENGTH(exclusions) > 1 THEN CONCAT(' - Exclude ' , ARRAY_TO_STRING(topping_name, ', ') ) 
+ELSE CONCAT(' - Exclude ' , topping_name[safe_offset(0)])
+END as exclusions,
+ almost_extras.extras
+FROM ex
+JOIN almost_extras
+ON ex.id=almost_extras.id
+FULL OUTER JOIN array_name_exc as aex
+ON ex.order_id=aex.order_id AND ex.pizza_id=aex.pizza_id
+ORDER BY order_id, pizza_id)
+
+SELECT 
+order_id,
+pizza_id,
+CASE
+	WHEN exclusions is NULL and EXTRAS is NOT NULL THEN CONCAT(pizza, extras)
+	WHEN extras is NULL and exclusions is NOT NULL THEN CONCAT(pizza, exclusions)
+	WHEN extras is NULL AND exclusions is NULL THEN pizza 
+	ELSE CONCAT(pizza, exclusions, extras)
+	END as order_item
+FROM final_list
 
 ```
+![image](https://github.com/roodra01/Case-Study-2---Pizza-Runner/assets/129188359/4ebb8f5e-727c-4189-80b9-95ea2cceffe7)
+
+
+
+
 #### 5.	Generate an alphabetically ordered comma separated ingredient list for each pizza order from the customer_orders table and add a 2x in front of any relevant ingredients
 #### •	For example: "Meat Lovers: 2xBacon, Beef, ... , Salami"
 ```sql
