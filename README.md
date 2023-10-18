@@ -438,7 +438,6 @@ order_id,
 customer_id,
 pizza_id,
 order_time,
-exclusions as unspex,
 split(exclusions) as exclusions,
 split(extras) as extras
 FROM
