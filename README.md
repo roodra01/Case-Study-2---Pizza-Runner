@@ -12,7 +12,7 @@ Danny started by recruiting “runners” to deliver fresh pizza from Pizza Runn
 ![Pizza Runner](https://github.com/katiehuangx/8-Week-SQL-Challenge/assets/81607668/78099a4e-4d0e-421f-a560-b72e4321f530)
 
 ## Note to reader
-If you want to get into the meat and potatoes of this project and *really* see me using SQL then skip ahead to questions C4, C5, and C6. Those three questions were obnoxiously difficult and really put my problem solving skills to the test.
+If you want to get into the meat and potatoes of this project and *really* see me using SQL then skip ahead to question C4. That question was obnoxiously difficult to answer.
 
 ## Data Cleaning & Transformation
 Before we get into the questions I wanna clean up the data a little so we don't run into problems later on. The challenge states that customer_orders and runner_orders has some problems. Lets dive into them to see what the issues are. 
@@ -540,16 +540,6 @@ FROM final_list
 
 
 
-
-#### 5.	Generate an alphabetically ordered comma separated ingredient list for each pizza order from the customer_orders table and add a 2x in front of any relevant ingredients
-#### •	For example: "Meat Lovers: 2xBacon, Beef, ... , Salami"
-```sql
-
-```
-#### 6.	What is the total quantity of each ingredient used in all delivered pizzas sorted by most frequent first?
-```sql
-
-```
 ### D.  Pricing and Ratings
 #### 1.	If a Meat Lovers pizza costs $12 and Vegetarian costs $10 and there were no charges for changes - how much money has Pizza Runner made so far if there are no delivery fees?
 ```sql
